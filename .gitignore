@@ -5,6 +5,11 @@
 !/.gitignore
 !/.gitattributes
 !/ISHTAR.md
+!/tools/restore-include.py
+!/tools/gen-binary-inc.py
+!/tools/depex-to-inf.py
+!/devices/ishtar/prebuilt/
+!/devices/ishtar/uefi/
 !/tools/fix-include.py
 !/tools/fetch-submodules.py
 !/tools/attempt.sh

@@ -99,12 +99,15 @@ def main():
         name = ""
         pe32 = b""
         raw = b""
+        depex = b""
         for sec in getattr(f, "objects", []) or []:
             kind = section_kind(sec)
             if kind == "User interface name":
                 name = name or ui_name(sec)
             elif kind == "PE32 image":
                 pe32 = section_data(sec)
+            elif kind == "DXE dependency expression" and not depex:
+                depex = section_data(sec)
             elif kind == "Raw" and not raw:
                 raw = section_data(sec)
         if not name:
@@ -115,6 +118,8 @@ def main():
             os.makedirs(d, exist_ok=True)
             base = safe(name)
             open(os.path.join(d, base + ".efi"), "wb").write(pe32)
+            if depex:
+                open(os.path.join(d, base + ".depex"), "wb").write(depex)
             ftype = (getattr(f, "attrs", {}) or {}).get("type")
             mtype = FFS_TYPE.get(ftype, "DXE_DRIVER")
             inf = (

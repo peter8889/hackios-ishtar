@@ -1,0 +1,22 @@
+[Defines]
+  INF_VERSION    = 0x00010005
+  BASE_NAME      = TestFbDxe
+  FILE_GUID      = 31c6de3e-a550-4083-8f87-57361a03e368
+  MODULE_TYPE    = DXE_DRIVER
+  VERSION_STRING = 1.0
+  ENTRY_POINT    = TestFbEntry
+
+[Sources]
+  TestFbDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+
+[LibraryClasses]
+  UefiDriverEntryPoint
+  UefiBootServicesTableLib
+  DebugLib
+
+[Depex]
+  TRUE

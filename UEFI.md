@@ -151,6 +151,20 @@ EDK2 的 FDF 不接受 `SECTION DEPEX`（`Unknown section type 'DEPEX'`），依
 表达式需要正确的栈语义（首次尝试在 `DisplayDxe` 上得到 9 个 GUID 后接 8 个 `AND` 再接 `FALSE`，
 不合法），因此没有采用。两条路：把转换器写对，或按参考做法直接给两个显示相关驱动打机器码补丁。
 
+
+## 7.1 仓库内的预构建产物
+
+`devices/ishtar/prebuilt/` 放着这一流程产出的两份文件，可以直接 `fastboot boot` 复验，不必先装
+Mu-Silicium 工具链：
+
+| 文件 | 规格 | sha256（前 16 位） |
+|---|---|---|
+| `SILICIUM_UEFI.fd` | 3,145,728 B | `080a02c7129903ba` |
+| `ishtar-boot.img` | 1,683,456 B | `0bdd16e26147b4fc` |
+
+平台定义（dsc/fdf/inc、`TestFbDxe`）在 `devices/ishtar/uefi/ishtarPkg/`，构建时复制到
+`Mu-Silicium/Platforms/Xiaomi/ishtarPkg`。
+
 ## 8. 尚未完成
 
 | 项 | 说明 |
