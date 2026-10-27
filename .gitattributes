@@ -1,0 +1,29 @@
+# The build runs on Linux and macOS, and a file with CRLF line endings is not a shell script
+# there: the kernel's build scripts and the tools' scripts have to keep LF.
+* text=auto
+
+*.sh text eol=lf
+*.py text eol=lf
+*.c text eol=lf
+*.h text eol=lf
+*.inc text eol=lf
+*.dsc text eol=lf
+*.fdf text eol=lf
+*.dec text eol=lf
+*.toml text eol=lf
+*.inf text eol=lf
+*.depex text eol=lf
+*.md text eol=lf
+*.cfg text eol=lf
+*.xml text eol=lf
+*.patch text eol=lf
+Makefile text eol=lf
+xl text eol=lf
+
+# the images and the binaries are not text
+*.fd binary
+*.efi binary
+*.bin binary
+*.dtb binary
+*.a binary
+*.o binary

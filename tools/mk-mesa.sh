@@ -105,12 +105,14 @@ BUILD=build-${DRIVERS//,/-}
 	-Dzstd=disabled -Dxmlconfig=disabled -Dexpat=disabled -Dshader-cache=disabled -Dvalgrind=disabled \
 	-Dlibunwind=disabled -Dglvnd=disabled -Dvideo-codecs= -Dtools= -Dgallium-vdpau=disabled -Dgallium-va=disabled \
 	-Dgallium-xa=disabled -Dlmsensors=disabled -Dbuild-tests=false > meson-setup.log
-ninja -C $BUILD > ninja.log
+# the build is memory hungry (the compiler of the shading language especially), and it is
+# parallel by default: the number of jobs is limited, or it runs out of memory
+ninja -C $BUILD -j${MESA_JOBS:-4} > ninja.log
 # air_run draws with a translated Metal shader and reads the pixels back; it is
 # the only way to find out whether the Adreno takes work that did not come from
 # the window server. Built only when asked, since it is a test program.
 if [ "${AIR:-}" = 1 ]; then
-	ninja -C $BUILD src/gallium/drivers/freedreno/air_run >> ninja.log
+	ninja -C $BUILD -j${MESA_JOBS:-4} src/gallium/drivers/freedreno/air_run >> ninja.log
 	cp $BUILD/src/gallium/drivers/freedreno/air_run out/air_run
 	echo "mk-mesa.sh: $B/out/air_run ($(stat -c %s out/air_run) bytes)"
 fi

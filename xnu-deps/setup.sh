@@ -121,8 +121,8 @@ stage1() {
 	if [ ! -d MacOSX13.3.sdk/System/Library/Frameworks/Kernel.framework/Headers/DriverKit ]; then
 		log "downloading the macOS 13.3 SDK for its DriverKit headers"
 		curl -L --fail --retry 3 -s -o macos-sdk.tar.xz "$MACOS_SDK_URL" || die "download failed: $MACOS_SDK_URL"
-		local wild=--wildcards; [ "$XNU_HOST_OS" = Darwin ] && wild=        # bsdtar: patterns as they are
-		tar -xJf macos-sdk.tar.xz $wild '*MacOSX13.3.sdk/System/Library/Frameworks/Kernel.framework*' ||
+		# the pattern goes before the file name: GNU tar wants it there, and BSD tar takes it there too
+		tar -xJf macos-sdk.tar.xz --wildcards '*MacOSX13.3.sdk/System/Library/Frameworks/Kernel.framework*' ||
 			die "cannot unpack the macOS SDK"
 		rm -f macos-sdk.tar.xz
 	fi
@@ -141,6 +141,32 @@ stage1() {
 		log "building mig"
 		(cd mm_bootstrap_cmds && autoreconf --install && sh configure --prefix="$XNUDEPS/host" &&
 			make -j$JOBS && make install) > mig-build.log 2>&1 || die "mig did not build, see xnu-deps/mig-build.log"
+	fi
+	# mig's option loop takes an option that has a value with it ("-I <path>") as the option alone
+	# and drops the value, so the compiler never sees the include paths and the .defs files cannot
+	# find each other ("<mach/std_types.defs>"). On Linux it also asks for a darwin target where the
+	# kernel needs the iOS one. The loop is patched for both.
+	if [ -f host/bin/mig ] && ! grep -q 'hakios: -I takes its path with it' host/bin/mig; then
+		log "patching mig: -I takes its path with it, and the target is the kernel's"
+		python3 - host/bin/mig <<-'PY' || die "cannot patch mig"
+		import sys
+		path = sys.argv[1]
+		text = open(path).read()
+		before = """	-MD ) sawMD=1; cppflags=( "${cppflags[@]}" "$1"); shift;;"""
+		after = """	-I ) cppflags=( "${cppflags[@]}" "$1" "$2" ); shift; shift;;   # hakios: -I takes its path with it
+	-MD ) sawMD=1; cppflags=( "${cppflags[@]}" "$1"); shift;;"""
+		if before not in text:
+		    sys.exit('mig: the option loop is not the one this patch knows')
+		text = text.replace(before, after, 1)
+		# the target: on Linux the -arch option becomes a darwin target, but the kernel is an iOS
+		# one and the SDK's headers only preprocess for that one
+		before = """              arch=("-target" "${2}-apple-darwin")"""
+		after = """              arch=("-target" "${2}-apple-ios${XNU_SDK_VERSION:-16.5}")   # hakios: the kernel's target"""
+		if before not in text:
+		    sys.exit('mig: the -arch case is not the one this patch knows')
+		text = text.replace(before, after, 1)
+		open(path, 'w').write(text)
+		PY
 	fi
 	if [ ! -x host/bin/unifdef ]; then
 		log "building unifdef"

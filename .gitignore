@@ -3,6 +3,8 @@
 # is named here.
 /*
 !/.gitignore
+!/.gitattributes
+!/ISHTAR.md
 !/README.md
 !/CONTRIBUTING.md
 !/ci/
@@ -59,6 +61,7 @@ __pycache__/
 /sysimage/*
 !/sysimage/fetch.sh
 !/sysimage/*.py
+!/sysimage/VERSIONS.md
 
 # of xnu-deps only what is ours; setup.sh fetches and builds the rest
 /xnu-deps/*

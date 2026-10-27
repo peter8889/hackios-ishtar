@@ -17,3 +17,9 @@ export PATH=$XNUDEPS/host/bin:$PATH
 export XNU_SDK_PATH=$XNUDEPS/sdk/iPhoneOS16.5.xnu.sdk
 export XNU_SDK_VERSION=16.5
 export XNU_PLATFORM_PATH=$XNUDEPS/sdk/Platforms/iPhoneOS.platform
+# mig (the build tool that turns Apple's .defs files into headers) runs the compiler on its own:
+# it takes the compiler from MIGCC and the header generator from MIGCOM, and falls back to the
+# system's cc and migcom when they are not set. On Linux the system's cc cannot target an Apple
+# machine, so it is pointed at ours here.
+export MIGCC=${MIGCC:-xnu-clang}
+export MIGCOM=${MIGCOM:-migcom}
