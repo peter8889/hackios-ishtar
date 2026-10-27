@@ -85,6 +85,7 @@ qemu/run-ios.sh 1800 -display gtk,zoom-to-fit=on
 | 现象 | 条件 | 状态 |
 |---|---|---|
 | guest 死锁：日志中途截断、屏幕冻结、CPU 占用约 190%、无 panic | `cpus=8`；或 `tb-size=1G` 且移除 wifid | 未修复；`cpus=4` + 默认 `tb-size` 可规避 |
+| 启动标志出现后转黑，日志继续、屏幕单色 `#000000` | SpringBoard 拉起 `WallpaperKit.CollectionsPoster` 之后 | 未修复；重启可恢复，非必然复现（同一镜像曾到主屏） |
 | 黑屏 | `fbscale=1`（375×812）或 `fbscale=2`（750×1624） | 未修复；仅默认 1125×2436 可用 |
 | SpringBoard 阻塞于 FrontBoard 同步 XPC | iOS 16.7.16 用户态 | 未修复 |
 | `check_all_exports` 失败 | `make kernel` 后置校验 | 未修复，绕过方式为手工 `mkpayload.py` |

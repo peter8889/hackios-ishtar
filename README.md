@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://t.me/petegroup"><img alt="Telegram" src="https://img.shields.io/badge/Telegram-%40petegroup-26A5E4?logo=telegram&logoColor=white&style=for-the-badge"></a>
+  <a href="https://t.me/petegroup"><img alt="Telegram" src="https://img.shields.io/badge/Telegram-%40petegroup-26A5E4?logo=telegram&logoColor=white"></a>
 </p>
 
 <p align="center">
