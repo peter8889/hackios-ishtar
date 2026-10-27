@@ -129,6 +129,28 @@ fastboot boot ishtar-boot.img      # 纯内存；失败时 fastboot reboot 回�
 `fastboot devices` 在镜像运行时**仍然**列出设备（bootloader 的 USB 枚举不会消失），不能用来判断。
 用 `fastboot getvar product`：跳转到镜像后 bootloader 不再应答，命令失败即为"已接管"。
 
+
+## 8.1 显示没有起来的排查记录
+
+| 实验 | 观察 | 结论 |
+|---|---|---|
+| 原样驱动启动 | 接管后运行数分钟，屏幕保持 ABL 的 fastboot 画面 | UEFI 能跑，显示未初始化 |
+| 换 `nuwa` 的 `DisplayDxe.patched.efi`、`PmicDxeLa.patched.efi` | 无变化 | 补丁版不足以点亮 |
+| 从固件卷移除 `DisplayDxe` | 仍长时间运行 | 不是卡死，是初始化失败后返回 |
+| `DisplayDxe` 排到分发队列末尾 | 无变化 | 不是分发顺序造成的依赖未就绪 |
+| 自写 `TestFbDxe` 向 `0xB8000000` 整片填 0xFFFF00FF | 屏幕无任何变化 | **该地址不是面板当前的扫描缓冲**；`splash_region` 只有在 DisplayDxe 重新配置 DSI 之后才会被扫出去 |
+
+由此确定：`0xB8000000` 是"配好之后"的缓冲，不是 ABL 正在显示的那块。要出画面，必须先由显示驱动
+把面板重新初始化，单纯写内存无效。
+
+### 未解决的结构问题：DEPEX
+
+固件卷里 71 个驱动带 DEPEX 节，导出为 PE32 + 二进制 INF 后丢失，等于全部无条件立即分发。
+EDK2 的 FDF 不接受 `SECTION DEPEX`（`Unknown section type 'DEPEX'`），依赖表达式只能来自 INF 的
+`[Depex]`，而那是 **表达式语言**（`BEFORE/AFTER/PUSH/AND/OR/NOT`），不是二进制块。把原始字节反解成
+表达式需要正确的栈语义（首次尝试在 `DisplayDxe` 上得到 9 个 GUID 后接 8 个 `AND` 再接 `FALSE`，
+不合法），因此没有采用。两条路：把转换器写对，或按参考做法直接给两个显示相关驱动打机器码补丁。
+
 ## 8. 尚未完成
 
 | 项 | 说明 |
