@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch one member of the iOS 16.5 iPhone X firmware archive without downloading the rest.
+"""Fetch one member of an iOS firmware archive without downloading the rest.
 
 usage: fetch-from-ipsw.py MEMBER OUTPUT
 
@@ -8,6 +8,13 @@ the member is streamed (and inflated, if it is compressed) straight to OUTPUT. A
 breaks off is taken up again: a member stored without compression (the big disk images are)
 continues where it stopped, also when OUTPUT is the partial file of an earlier run; a compressed
 one starts over.
+
+Which firmware: IPSW_URL says where to fetch it and IPSW_SIZE how big it is. Both default to the
+iOS 16.5 of the iPhone X. A different version of the same phone needs both of them changed:
+the URL carries Apple's own directory for that build, whose last part is a GUID that changes
+with every release, so it has to be copied from the download link of the build in question
+(ipsw.me lists them; the address in the browser's address bar after clicking Download is the
+one to use).
 """
 import http.client
 import os
@@ -19,9 +26,10 @@ import zlib
 
 ATTEMPTS = 20
 
-URL = ('https://updates.cdn-apple.com/2023SpringFCS/fullrestores/032-85130/6AB0D10A-8AF9-4F6C-8CF5-A1B315CABE88/'
-       'iPhone10,3,iPhone10,6_16.5_20F66_Restore.ipsw')
-SIZE = 6165698198
+URL = os.environ.get('IPSW_URL', (
+    'https://updates.cdn-apple.com/2023SpringFCS/fullrestores/032-85130/6AB0D10A-8AF9-4F6C-8CF5-A1B315CABE88/'
+    'iPhone10,3,iPhone10,6_16.5_20F66_Restore.ipsw'))
+SIZE = int(os.environ.get('IPSW_SIZE', '6165698198'))
 
 
 def fetch(start, end):

@@ -19,12 +19,15 @@
 #
 #   KEEP=1   keep the downloaded disk images (rootfs.dmg is needed again only after changing
 #            select-system.py; with it in place a second run downloads nothing)
+#
+# Which version of iOS: the defaults are the 16.5 of the iPhone X. Another version of the same
+# phone needs its own four names and the URL of its archive; see sysimage/VERSIONS.md.
 set -e
 cd "$(dirname "$0")"
-ROOTFS_DMG=096-04088-077.dmg                    # the root filesystem, APFS
-CRYPTEX_DMG=096-04666-078.dmg                   # the OS cryptex: dyld shared cache and a few libraries
-APP_CRYPTEX_DMG=096-03536-083.dmg               # the App cryptex (BuildManifest: Cryptex1,AppOS)
-CACHE=20F66__iPhone10,3_6
+ROOTFS_DMG=${ROOTFS_DMG:-096-04088-077.dmg}         # the root filesystem, APFS
+CRYPTEX_DMG=${CRYPTEX_DMG:-096-04666-078.dmg}        # the OS cryptex: dyld shared cache and a few libraries
+APP_CRYPTEX_DMG=${APP_CRYPTEX_DMG:-096-03536-083.dmg} # the App cryptex (BuildManifest: Cryptex1,AppOS)
+CACHE=${CACHE:-20F66__iPhone10,3_6}                  # the dyld shared cache directory in the archive
 UNZBM=../xnu-deps/host/bin/unzbm
 
 for tool in python3 7z cc; do
@@ -82,7 +85,8 @@ if [ ! -f .done-cryptex ]; then
 	unzbm_all cryptex.cache
 	mv cryptex.cache/System/Library/Caches/com.apple.dyld $CACHE
 	rm -rf cryptex.cache
-	[ "$(ls $CACHE | wc -l)" -eq 43 ] || { echo "fetch.sh: the dyld shared cache is incomplete"; exit 1; }
+	# how many files the dyld shared cache has: 43 in the 16.5, a different number in another version
+	[ "$(ls $CACHE | wc -l)" -eq "${DYLID_FILES:-43}" ] || { echo "fetch.sh: the dyld shared cache is incomplete"; exit 1; }
 	touch .done-cryptex
 	[ -n "$KEEP" ] || rm -f cryptex-os.dmg
 fi
