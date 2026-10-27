@@ -6,6 +6,9 @@
 !/.gitattributes
 !/ISHTAR.md
 !/README.md
+!/README.upstream.md
+!/README.en.md
+!/assets/
 !/CONTRIBUTING.md
 !/ci/
 !/README.uk.md

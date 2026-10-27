@@ -1,194 +1,116 @@
-# HakiOS
+<p align="center">
+  <img alt="HakiOS ishtar" src="assets/logo.png" width="180">
+</p>
 
-English · [中文](README.zh.md) · [Українська](README.uk.md)
+<p align="center">
+  <a href="https://t.me/petegroup"><img alt="Telegram" src="https://img.shields.io/badge/Telegram-%40petegroup-26A5E4?logo=telegram&logoColor=white&style=for-the-badge"></a>
+</p>
 
-HakiOS runs the open-source XNU kernel (xnu-8796.121.2) with my own boot loader and my own drivers
-on an Android phone with a Qualcomm SoC, and boots the stock iOS 16.5 user space on top of it:
-launchd, backboardd, SpringBoard, the apps. The same thing runs in QEMU (`virt`, aarch64) on a
-Linux PC.
+<p align="center">
+  简体中文 | <a href="README.en.md">English</a>
+</p>
 
-Nothing is flashed. The loader goes into RAM through `fastboot boot`, the system lives in RAM for
-the length of a session, and a reboot brings the phone back to its own Android. This is a research
-bench, not a ROM.
+# HakiOS · ishtar
 
-The first phone is the **POCO X5 Pro 5G** (`redwood`, Snapdragon 778G). The kernel knows nothing
-about it in advance: every address, interrupt, power rail and firmware comes from the phone's own
-device tree and its own Android, so a port to another Qualcomm phone is a new directory under
-`devices/`, not a rewrite.
+小米 13 Ultra（代号 `ishtar`，SoC 为高通 SM8550-AB "kalama"）的 HakiOS 移植，目标是把
+**iOS 16.5 用户态**运行在定制 XNU 内核上。本仓库派生自
+[hackios-xnu-kernel](https://github.com/oosexgang/hackios-xnu-kernel)，参考设备为
+POCO X5 Pro（`redwood`，SM7325）。
 
-## What is in the repository
+工作分为两条线：**QEMU 仿真**验证与硬件无关的软件栈；**真机移植**验证硬件相关的部分。
+前者已完成到主屏，后者尚缺一道 UEFI 关卡。所有真机操作以不写闪存、不改分区表为前提，
+只允许 `fastboot boot`（纯内存载入）与只读采集。
 
-Only my code and my data:
+## 状态
 
-- the kernel: a patch to Apple's open-source XNU (`xnu/hakios.patch`, APSL 2.0) and my driver
-  files (`xnu/files/`), laid over a fresh clone by `xnu/apply.sh`;
-- the boot loader (`xnuloader/`), my programs and libraries (`userland/src/`), tools (`tools/`),
-  build and run scripts;
-- `prebuilt/`: the kernel, loader and libraries built from this repository;
-- `devices/poco-x5-pro/`: what one phone needs (its UEFI port, device tree, firmware script).
+| 路径 | 状态 | 判据 |
+| --- | --- | --- |
+| QEMU（aarch64 TCG） | iOS 16.5 至主屏，可交互 | 1125×2436，18281 色，10–16 fps |
+| 真机 ishtar | 未启动 | 无可用 UEFI 固件 |
 
-Not in the repository, never:
+| 部分 | 状态 |
+| --- | --- |
+| 内核、启动链、显示（线性帧缓冲） | 已实现并验证（QEMU） |
+| iOS 16.5 用户态、注入库 | 已实现并验证 |
+| iOS 16.7.16 用户态 | 部分：SpringBoard 阻塞于 FrontBoard 同步 XPC |
+| UEFI（`ishtarPkg`）、触摸、GPU、IPA | 未开始 |
 
-- any file of iOS: no binary, image, cache, font, picture or screenshot. You build the system
-  image on your machine from the iOS 16.5 IPSW, which `sysimage/fetch.sh` downloads from Apple's
-  public servers for you, without decrypting or circumventing anything;
-- the phone's firmware (GPU, Wi-Fi, audio DSP, modem, haptics, cameras): it is the vendor's and
-  is pulled from your own phone into `fw-*/`, which git ignores;
-- keys, certificates, activation, or anything that would make the phone pass as an iPhone to
-  Apple's services. Signing in to an Apple account is impossible here and not a goal.
+## 本轮结论
 
-## Status
+**黑屏的根因在 loader 的面板交接。** QEMU 在 fw_cfg 的 MMIO 写内完成 DMA 并清零描述符的
+控制字，loader 回读到的是处理器缓存中的旧值，将请求判为失败，于是 `SCREEN` 保留固件的
+800×600 与固件缓冲地址；内核据此把 1125×2436 的画面写入无显示的内存。改为"请求写出即
+视为完成"后，画面恢复。此缺陷与 iOS 版本、渲染后端无关，所有构建均受影响。
 
-| Works | Not yet |
-|---|---|
-| Lock screen, home screen, Control Center, gestures, the stock apps | Cellular: the modem boots, sees the network, the SIM is bound, the IPA data path and `en1` are in place; registration, the data session and the status bar bars are in progress (`docs/cellular.md`) |
-| Touch screen, multitouch, power and volume buttons | Bluetooth |
-| All 8 CPU cores, the big core at 2.4 GHz | Charging under this kernel |
-| GPU rendering on Adreno (`gpu=1`, OpenGL ES through Mesa) | Metal (there is a shader compiler, no Metal) |
-| Speakers and microphone (`adsp=1 sound=4 mic=4`) | Apple account: no Secure Enclave |
-| Battery level in the UI (through the audio DSP, `adsp=1`) | |
-| Vibration (`haptic=5`) | |
-| Wi-Fi: radio, driver, network connection (`wifi=1`) | |
-| Cameras in Camera.app (`cam=5`) | |
-| `/private/var` kept across reboots (`var_store=1 ufs_write=1`) | |
-| Sileo, Procursus packages, SSH into the phone | |
+**16.7.16 用户态需要 14 个方法地址的迁移。** 注入库在替换前校验目标方法的地址，14 个地址
+全部取自 16.5；在 16.7.16 上逐一被拒绝，激活与开机向导均未接管。拒绝信息同时给出实际地址，
+据此建立 `also_in_16_7_16[]` 双版本表，两版均可命中，第三版仍被拒绝。
 
-## Quick start in QEMU
+**分辨率与核数存在硬边界。** 面板仅默认 1125×2436 可用；`fbscale=2`（750×1624）与
+`fbscale=1`（375×812）会触发显示路径缺陷。`cpus=8` 会在 guest 内部死锁（日志中途截断、
+屏幕冻结、无 panic），`cpus=4` 稳定。
 
-Linux x86-64, about 12 GB of disk, 7-Zip 23 or newer, `lz4`, `qemu-system-aarch64`, `edk2-aarch64`.
+## 真机参数
 
-```sh
-git clone https://github.com/oosexgang/hakios-os.git hakios
-cd hakios
-sysimage/fetch.sh             # the iOS 16.5 IPSW from Apple's servers, the needed parts unpacked (7.4 GB)
-REST=1 userland/build.sh      # the APFS images: userland/root.apfs and userland/system.apfs
-mkdir -p logs
-qemu/run-ios.sh 1200 -display gtk > logs/qemu.log     # a 20-minute session
-```
+`devices/ishtar/soc.args` 取自本机设备树（`/sys/firmware/fdt`），修正了参考树的三处错误：
 
-The lock screen appears after two or three minutes. The mouse with the button held is a finger;
-`H` is Home, `L` is the power button, `↑`/`↓` are volume.
+| 参数 | 本机 | 参考树 |
+| --- | --- | --- |
+| `soc_ipa_base` | `0x3e40000` | `0x3f40000` |
+| `soc_mpss_mem` | `0x89800000` | `0x8a800000` |
+| `soc_ipa_fw` | `ipa_fws` | `kalama_ipa_fws` |
 
-## On the phone
+平台常量（`platform_ishtar`）：GIC `0x17100000` / `0x17180000`，8 核，MPIDR shift 8，
+`small_cores 0x07`，显示基址 `0xB8000000`，面板 1440×3200、行跨度 5760 字节。分区表 128 项，
+无 `darwin` 分区。
 
-A phone with a port (`devices/poco-x5-pro/`, POCO X5 Pro 5G), its boot loader unlocked, `adb` and
-`fastboot` on the PC, the images from the previous section, and the phone's own firmware:
+## 结构
 
-```sh
-devices/poco-x5-pro/pull-firmware.sh    # GPU, Wi-Fi, audio/battery, haptics, modem, cameras -> fw-*/
-./xl enter                          # Android -> fastboot -> our loader in RAM
-./xl ramdisk userland/system.apfs   # the system image into the phone's RAM (~80 s), once per loader session
-XL_SB_DELAY=8 XL_SECS=600 \
-XL_CMDLINE="bootcpu=7 cpus=8 cpufreq=1 ufs=2 touchscreen=1 gpu=1 adsp=1 sound=4 wifi=1 haptic=5 modem=1" \
-./xl run                            # a 10-minute session, the log goes to logs/
-./xl reboot                         # back to Android
-```
+| 路径 | 内容 |
+| --- | --- |
+| `ISHTAR.md` | 移植状态、参数、已知缺陷的完整登记 |
+| `devices/ishtar/` | 设备目录：`PORTING.md`、`README.md`、`soc.args`、取数脚本 |
+| `xnuloader/` | UEFI loader：平台描述、ramfb 交接、内核载入 |
+| `xnu/` | 内核补丁与 `port-16.7/` 的两个 sysctl 脚本 |
+| `sysimage/` | iOS 组件获取（版本参数化）、镜像选择、`VERSIONS.md` |
+| `userland/` | 用户态镜像构建、注入库、测试程序 |
+| `qemu/` | 仿真运行、截图、输入、日志符号化 |
+| `tools/soc-args.py` | 由设备树生成 SoC 引导参数（同时支持两代写法） |
 
-`tools/modem-cycle.sh "ARGS" SECS` does all of that in one command and returns the phone to Android.
-
-The main kernel arguments (the full list is in `docs/ru/notes.md`):
-
-| Argument | What it does |
-|---|---|
-| `cpus=8 bootcpu=7 cpufreq=1` | all CPU cores and their clocks |
-| `touchscreen=1` | the touch screen |
-| `gpu=1` | rendering on Adreno (an image built with `GL=1`, firmware in `fw-gpu/`) |
-| `adsp=1 sound=4 mic=4` | the audio DSP: speakers, microphone; battery and charging come with it |
-| `haptic=5` | the vibration motor |
-| `wifi=1` | Wi-Fi (the network from `fw-wifi/network`) |
-| `cam=5` | the cameras |
-| `modem=1` | the modem beside the system: its firmware, file systems, IPA, SIM, NAS |
-| `modem_step=N` | the modem step by step, for debugging (`docs/cellular.md`) |
-| `var_store=1 ufs_write=1` | keep `/private/var` across reboots |
-
-## Building from source
-
-The kernel (Linux: theos with its cctools and `iPhoneOS16.5.sdk`; macOS: Xcode or cctools, the SDK
-is fetched for you):
+## 构建与运行
 
 ```sh
-xnu/apply.sh             # XNU sources from Apple's GitHub + my changes -> xnu-src/
-xnu-deps/setup.sh        # dependencies, tools and the SDK
-./xnu-build.sh -j8 -k    # -> xnu-src/.../BUILD/obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837
+sysimage/fetch.sh                 # 默认 iOS 16.5（20F66）；版本切换见 sysimage/VERSIONS.md
+REST=1 GL=1 userland/build.sh     # 生成 root.apfs 与 system.apfs
+qemu/run-ios.sh 1800 -display gtk,zoom-to-fit=on
 ```
 
-The loader: `xnuloader/build.sh` (clang + lld-link, an EFI application without EDK2). The header
-`xnuloader/identity.h`, the properties by which iOS tells which iPhone it is, is not kept in the
-repository: `xnuloader/mkidentity.sh` makes it at build time from the device tree in your own IPSW
-(one 34 KB file; LZFSE is decoded by `lzfse`, macOS's `compression_tool` or the Python `lzfse`
-module, or the open lzfse library gets built). User space and the images: `REST=1 userland/build.sh`
-(`MODEM=1 SYSTEM=1` put the modem's firmware into the system image). Details: `xnu/README.md`,
-`docs/ru/notes.md`.
+启动参数 `cpus=4 gl=1`，分辨率取默认值。首次至主屏约 8 分钟；界面绘制由 Mesa 软件光栅化
+完成，主机 GPU 不参与。
 
-## Layout
+## 已知缺陷
 
-| Directory | Contents |
-|---|---|
-| `xnu/` | the kernel patch and files; `apply.sh`, `export.sh`; a README about the kernel |
-| `xnu/files/bsd/dev/hakios.*.c` | my drivers: display, touch, UFS, GPU, Wi-Fi, audio, modem (`hakios.mpss.c`), its packets (`hakios.ipa.c`, `hakios.cell.c`), SIM/NAS, haptics, cameras |
-| `xnuloader/` | the boot loader (a UEFI application) |
-| `userland/` | my programs and libraries (`src/`), the image build, launchd jobs |
-| `sysimage/` | scripts that fetch and unpack the OS files from the IPSW (none of the files themselves) |
-| `devices/poco-x5-pro/` | one phone: its UEFI port, device tree, prebuilt UEFI images, firmware script, tools |
-| `tools/` | APFS, firmware, QMI tests, run scripts |
-| `qemu/` | running in QEMU |
-| `docs/` | `notes.md`: the detailed notes (Russian); `cellular.md`: cellular; `air.md`, `metal.md`: the GPU |
-| `prebuilt/` | the built kernel, loader and libraries |
+| 现象 | 条件 | 状态 |
+| --- | --- | --- |
+| guest 死锁：日志截断、屏幕冻结、CPU 约 190%、无 panic | `cpus=8`；或 `tb-size=1G` 且移除 wifid | 未修复，`cpus=4` + 默认 `tb-size` 规避 |
+| 黑屏（仅启动画面） | `fbscale=1`、`fbscale=2` | 未修复，仅默认分辨率可用 |
+| SpringBoard 阻塞于 FrontBoard 同步 XPC | iOS 16.7.16 | 未修复 |
+| `check_all_exports` 失败 | `make kernel` 后置校验 | 未修复，绕过方式为手工 `mkpayload.py` |
 
-## Devices
+## 文档
 
-The kernel, loader and user space are shared. Everything about one phone lives in
-`devices/<name>/`: its UEFI, device tree, firmware list and tools. Today there is one,
-`devices/poco-x5-pro/`, and its README is the map of what a port to another Qualcomm phone must bring.
-The phone's drivers are the files `xnu/files/bsd/dev/hakios.*.c`; the head of each says where its
-numbers came from.
+- [ISHTAR.md](ISHTAR.md) —— 状态、参数、内核侧改动逐条原因、真机待办
+- [devices/ishtar/PORTING.md](devices/ishtar/PORTING.md) —— 工作量排序、IPA v4.11→v5.5 对照表、UEFI 清单
+- [sysimage/VERSIONS.md](sysimage/VERSIONS.md) —— 16.7.16 运行所需的 sysctl 与地址表
+- [README.upstream.md](README.upstream.md) —— 上游项目说明
 
-## Cellular
+## 联系
 
-The modem (the Hexagon MPSS) is brought up from XNU: firmware through TrustZone, shared memory,
-SMP2P, GLINK, QRTR, QMI; its file systems are served from the UFS (read-only, writes stay in kernel
-memory), TFTP and the service registry are mine. The IPA packet engine runs with its firmware,
-clock and SMMU context, and the handshake with the modem goes through. The SIM is bound to the
-subscription and NAS reads the signal. The current state and the whole story are in
-`docs/cellular.md`.
+移植讨论在 Telegram 群 [@petegroup](https://t.me/petegroup)。构建结果与硬件观察请写入
+`ISHTAR.md` 或 issue，群组仅作讨论渠道。
 
-## Independent, and Apple-free at the core
+## 上游与许可
 
-HakiOS is an independent research project. It is **not affiliated with or endorsed by Apple**;
-"iOS", "iPhone", "XNU" and "Apple" are named only to describe what the code works with. The core
-kernel, the boot loader and the open tools build and run with nothing of Apple's:
-
-```sh
-make qemu-open      # the open kernel + a placeholder loader + a tiny raw-syscall user space, in QEMU
-```
-
-No IPSW, no iOS user space, no firmware. Booting the stock iOS user space (`make qemu`,
-`make phone`) is an optional path that needs the IPSW and the phone's firmware, which you supply
-from your own device.
-
-## Licenses and the legal side
-
-My code is under the license of the files it changes: the XNU patch under the Apple Public Source
-License 2.0 (Apple publishes XNU under it; the terms are met: changes are published as source,
-notices are kept), the rest as the file headers say. iOS, its images, Apple's trademarks and the
-phone's firmware belong to their owners, are not in this repository and are not distributed by me;
-everyone takes them from their own phone and their own IPSW. "iOS", "iPhone" and "Apple" are
-named only to describe what the code works with. If you believe a file here infringes anyone's
-rights, open an issue and I will remove it.
-
-The detail is in separate files: `LEGAL.md` (what is and is not distributed, and the limits of
-these statements), `COMPLIANCE.md` (how the APSL 2.0 and other terms are met, and the items still
-to verify), `THIRD_PARTY_LICENSES.md` (every third-party component with origin and license), and
-`NOTICE` (the short canonical list). None of this is legal advice.
-
-hakios is an experimental project focused on bringing ios to android hardware. our goal is to make hackios free and accessible to everyone.
-
-owners:
-@oodze - founder
-@netusd - adversting / ceo-dev
-@wannqn - dev 
-@hxfuxyyXD - dev
-Rhaenja Hun（杭润嘉） — Developer / Sponsor
-
-tym sicilium for the sources!
-
+派生自 [oosexgang/hackios-xnu-kernel](https://github.com/oosexgang/hackios-xnu-kernel)，许可证随上游
+（[LICENSE](LICENSE)、[LICENSE.APSL](LICENSE.APSL)）。仓库不包含 Apple 系统文件、IPSW 组件或厂商
+固件；相关文件由脚本从本机或官方服务器获取，且不纳入版本控制。
