@@ -84,7 +84,9 @@ CC="xnu-clang -arch arm64 -Os -static -nostdlib -ffreestanding -fno-stack-protec
 LD="-Wl,-e,_start -Wl,-pagezero_size,0x100000000"
 DYN="xnu-clang -arch arm64 -isysroot ${THEOS:-$HOME/theos}/sdks/iPhoneOS16.5.sdk -O1"
 IOS=../sysimage
-CACHE=$IOS/20F66__iPhone10,3_6
+# the directory the dyld shared cache was put in by sysimage/fetch.sh: its name is the one of the
+# build the files came from (20F66__iPhone10,3_6 for the 16.5), so it can be told here
+CACHE=${CACHE:-$IOS/20F66__iPhone10,3_6}
 # sysimage/rootfs and sysimage/cryptex must be this copy's own directories of hard links, the way
 # tools/new-workspace.sh makes them. A symlink to another copy's tree makes sysroot a symlink too, because
 # cp -a does not follow one, and then every rm -rf and mv below edits the shared extraction in place. That

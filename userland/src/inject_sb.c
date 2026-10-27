@@ -133,9 +133,48 @@ extern const void *_dyld_get_shared_cache_range(size_t *length);
 static uintptr_t slide;
 
 /*
+ * The same methods in iOS 16.7.16 (20H392), whose shared cache holds them elsewhere: the images
+ * between 16.5 and 16.7 grew, so both SpringBoard's and UIKit's code moved. Each address below is
+ * what this library itself reported as "found" on a 16.7.16 run, when it refused the 16.5 one.
+ * A method may be at either address, and both are accepted; a third build is still refused, which
+ * is what the check is for.
+ */
+static const struct {
+	const char *selector;
+	uintptr_t address;
+} also_in_16_7_16[] = {
+	{ "_setupActivationState", 0x1c5991a78UL },
+	{ "_setSetupRequiredReason:", 0x1c5aa608cUL },
+	{ "_outputFormatForSnapshot:", 0x1f287f320UL },
+	{ "longPress:", 0x1c5d339b0UL },
+	{ "_allowsCapabilityPosterSwitcherWithExplanation:", 0x1c5e46f8cUL },
+	{ "_createOrDestroyWallpaperOverlayView", 0x1c58c0460UL },
+	{ "batteryLevel", 0x18970b8bcUL },
+	{ "batteryState", 0x189212b64UL },
+	{ "showsPercentage", 0x189a9d1c8UL },
+	{ "setShowsPercentage:", 0x189277520UL },
+	{ "_shouldShowBolt", 0x18920d1f8UL },
+	{ "chargePercent", 0x189a9d094UL },
+	{ "setChargePercent:", 0x1892966e0UL },
+	{ "batteryChargingLevel", 0x1c568bd24UL },
+};
+
+static uintptr_t
+address_in_16_7_16(const char *selector)
+{
+	for (size_t i = 0; i < sizeof(also_in_16_7_16) / sizeof(also_in_16_7_16[0]); i++) {
+		if (strcmp(also_in_16_7_16[i].selector, selector) == 0) {
+			return also_in_16_7_16[i].address;
+		}
+	}
+	return 0;
+}
+
+/*
  * Replace -[CLASS SELECTOR] (or +[CLASS SELECTOR]: `kind` is that first character), whose code must now
- * be at the unslid address `expected` (iOS 16.5, 20F66: what a replacement does depends on what the
- * original did). Returns the original.
+ * be at the unslid address `expected` (iOS 16.5, 20F66) or at its 16.7.16 one (the table above: what a
+ * replacement does depends on what the original did, so the address is the check that this is the
+ * method the replacement was written for). Returns the original.
  * (dyld interposing of the C functions underneath does not reach calls made from inside the
  * shared cache: there one library branches straight into the other.)
  */
@@ -146,11 +185,17 @@ replace_method_of_kind(char kind, const char *class_name, const char *selector, 
 	Method method = cls == NULL ? NULL : kind == '+' ? class_getClassMethod(cls, sel_registerName(selector)) :
 	    class_getInstanceMethod(cls, sel_registerName(selector));
 	IMP original = method ? method_getImplementation(method) : NULL;
+	uintptr_t later = address_in_16_7_16(selector);
 
-	if (original == NULL || (uintptr_t)original != expected + slide) {
+	if (original == NULL || ((uintptr_t)original != expected + slide &&
+	    (later == 0 || (uintptr_t)original != later + slide))) {
 		say("hakios: %c[%s %s]: found %#lx, expected %#lx; left alone\n", kind, class_name, selector,
 		    original ? (uintptr_t)original - slide : 0, expected);
 		return NULL;
+	}
+	if ((uintptr_t)original != expected + slide) {
+		say("hakios: %c[%s %s]: at the 16.7.16 address %#lx (%#lx was 16.5's)\n", kind, class_name, selector,
+		    later, expected);
 	}
 	method_setImplementation(method, replacement);
 	return original;
