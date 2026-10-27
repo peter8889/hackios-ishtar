@@ -10,7 +10,7 @@
   <a href="README.md">简体中文</a> | English
 </p>
 
-# HakiOS · ishtar
+# HakiOS ishtar
 
 Port of HakiOS to the Xiaomi 13 Ultra (`ishtar`, Qualcomm SM8550-AB "kalama"): the **iOS 16.5
 userland** on a custom XNU kernel. Derived from

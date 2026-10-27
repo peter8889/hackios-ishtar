@@ -1,4 +1,4 @@
-# HakiOS — ishtar (Xiaomi 13 Ultra) port
+# HakiOS ishtar (Xiaomi 13 Ultra)
 
 本仓库为 [hackios-xnu-kernel](https://github.com/oosexgang/hackios-xnu-kernel) 的移植分支，目标设备为
 小米 13 Ultra（`ishtar`，SM8550-AB "kalama"）；参考设备为 POCO X5 Pro（`redwood`，SM7325）。

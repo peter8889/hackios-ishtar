@@ -10,7 +10,7 @@
   简体中文 | <a href="README.en.md">English</a>
 </p>
 
-# HakiOS · ishtar
+# HakiOS ishtar
 
 小米 13 Ultra（代号 `ishtar`，SoC 为高通 SM8550-AB "kalama"）的 HakiOS 移植，目标是把
 **iOS 16.5 用户态**运行在定制 XNU 内核上。本仓库派生自
