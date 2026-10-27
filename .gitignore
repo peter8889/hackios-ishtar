@@ -5,6 +5,10 @@
 !/.gitignore
 !/.gitattributes
 !/ISHTAR.md
+!/tools/fix-include.py
+!/tools/fetch-submodules.py
+!/tools/attempt.sh
+!/UEFI.md
 !/README.md
 !/README.upstream.md
 !/README.en.md

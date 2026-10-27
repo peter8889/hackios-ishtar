@@ -94,7 +94,7 @@ qemu/run-ios.sh 1800 -display gtk,zoom-to-fit=on
 
 | 项 | 依赖 | 状态 |
 |---|---|---|
-| UEFI（`ishtarPkg`） | Mu-Silicium 无 ishtar 平台；需以 `nuwaPkg` 为模板 + `uefi_a` 内 98 个 DXE 驱动 + 47 个面板 XML + `DisplayDxe` DSI 补丁 | 未开始 |
+| UEFI（`ishtarPkg`） | 已构建：`SILICIUM_UEFI.fd` 3,145,728 B（153 FFS，98 个手机自带驱动 + 47 个面板 XML）；启动镜像 1,687,552 B，真机上 bootloader 45 ms 后交出控制、镜像持续运行 ≥60 s。流程见 [UEFI.md](UEFI.md) | 已上机，显示未验证 |
 | 显示 | UEFI 线性帧缓冲（`splash_region`），不依赖 Adreno | 未开始 |
 | 触摸 | Goodix GT9916，I2C `0x5d`，reset gpio 24，irq gpio 25 | 未开始 |
 | GPU | Adreno 740（A7xx），与 `hakios.adreno.c` 的 A6xx 不同架构 | 未开始 |
