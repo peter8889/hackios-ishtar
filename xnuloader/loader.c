@@ -551,6 +551,21 @@ static const struct platform platform_redwood = {
 	.small_cores = 0x0f,
 };
 
+/*
+ * The Xiaomi 13 Ultra (ishtar, SM8550-AB "kalama"): 1 Cortex-X3, 4 A715, 3 A510, numbered in the
+ * second affinity field (shift 8) with the three little ones at 0-2. The GIC is not where redwood's
+ * is -- this SoC puts the distributor at 0x17100000 and one redistributor region at 0x17180000 --
+ * and the UEFI leaves the panel's memory at 0xB8000000, which is how this platform is recognised
+ * (see efi_main: the display base the firmware reports). No UART: this phone has none wired out,
+ * the log comes back through the loader as on redwood.
+ */
+static const struct platform platform_ishtar = {
+	.name = "ishtar", .io_base = 0x00400000, .io_size = 0x3FC00000,
+	.gic_dist = 0x17100000, .gic_redist = 0x17180000, .uart = 0, .log_other_cpu = 1,
+	.cores = 8, .core_shift = 8,
+	.small_cores = 0x07,
+};
+
 /* ------------------------------------------------------------------------ */
 
 static void
@@ -3833,8 +3848,20 @@ usb_command_loop(void)
  * is simply replaced). In QEMU the display is then exactly what iOS expects; on the real phone
  * the kernel's display driver scales that picture to the panel.
  */
+/*
+ * The shape of the picture that iOS draws into: the iPhone X's screen, whose identity we carry
+ * (375 x 812 points at three times). On the phone the kernel's display driver scales it to the
+ * panel, and the boot-arg fbscale= draws it at fewer pixels a point and lets the driver enlarge
+ * it -- which is what makes it possible to watch it under QEMU, where every pixel is drawn by the
+ * processor. In QEMU the panel is this size and nothing is scaled, so it has to be the size the
+ * kernel's display driver reports (fbwidth and fbheight, which default to this).
+ */
+#ifndef PHONE_WIDTH
 #define PHONE_WIDTH     1125            /* the screen of the iPhone X, whose identity we carry */
+#endif
+#ifndef PHONE_HEIGHT
 #define PHONE_HEIGHT    2436
+#endif
 #define FW_CFG_BASE     0x09020000ULL   /* QEMU virt: data at +0, selector at +8, DMA address at +16 */
 #define FW_CFG_FILE_DIR 0x19
 #define FW_CFG_DMA_SELECT 0x08
@@ -3897,8 +3924,15 @@ ramfb_phone_screen(void)
 	dma.address = __builtin_bswap64((uint64_t)(uintptr_t)&cfg);
 	*(volatile uint64_t *)(FW_CFG_BASE + 16) = __builtin_bswap64((uint64_t)(uintptr_t)&dma);
 	if (dma.control != 0) {
-		print("ramfb: control %x after the request\n", (uint64_t)be32(dma.control));
-		return;
+		/*
+		 * QEMU has taken the request all the same: it reads the descriptor inside the MMIO write
+		 * and clears this word in memory, and what is read back here is the copy the processor
+		 * had cached. Waiting for a zero (as this did) leaves SCREEN at the firmware's 800x600,
+		 * and the kernel then draws the phone's picture, scaled to that, into the firmware's old
+		 * buffer -- which is not the memory the display shows. The screen is black, always, on
+		 * every version of iOS. So the answer is only said, not obeyed.
+		 */
+		print("ramfb: control %x after the request (taken as done)\n", (uint64_t)be32(dma.control));
 	}
 	SCREEN.base = fb;
 	SCREEN.width = PHONE_WIDTH;
@@ -3932,6 +3966,9 @@ efi_main(efi_handle image, efi_system_table *st)
 		SCREEN.stride = GOP->mode->info->pixels_per_scanline * 4;
 		if (SCREEN.base == 0xE1000000ULL) {
 			PLAT = &platform_redwood;
+		} else if (SCREEN.base == 0xB8000000ULL) {
+			/* the 13 Ultra: its UEFI leaves the panel's memory here, in the splash region */
+			PLAT = &platform_ishtar;
 		} else {
 			ramfb_phone_screen();
 		}
