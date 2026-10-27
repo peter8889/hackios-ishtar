@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="HakiOS ishtar" src="assets/logo.png" width="180">
+  <img alt="hackios ishtar" src="assets/logo.png" width="180">
 </p>
 
 <p align="center">
@@ -10,9 +10,9 @@
   简体中文 | <a href="README.en.md">English</a>
 </p>
 
-# HakiOS ishtar
+# hackios ishtar
 
-小米 13 Ultra（代号 `ishtar`，SoC 为高通 SM8550-AB "kalama"）的 HakiOS 移植，目标是把
+小米 13 Ultra（代号 `ishtar`，SoC 为高通 SM8550-AB "kalama"）的 hackios 移植，目标是把
 **iOS 16.5 用户态**运行在定制 XNU 内核上。本仓库派生自
 [hackios-xnu-kernel](https://github.com/oosexgang/hackios-xnu-kernel)，参考设备为
 POCO X5 Pro（`redwood`，SM7325）。
